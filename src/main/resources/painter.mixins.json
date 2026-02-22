@@ -1,14 +1,11 @@
 {
-	"required": true,
-	"package": "com.painter.mixin",
-	"compatibilityLevel": "JAVA_21",
-	"mixins": [
-		"ExampleMixin"
-	],
-	"injectors": {
-		"defaultRequire": 1
-	},
-	"overwrites": {
-		"requireAnnotations": true
-	}
+  "required": true,
+  "package": "com.painter.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "BrushItemMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
 }

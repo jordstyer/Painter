@@ -4,12 +4,12 @@ import net.minecraft.block.*;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.BundleContentsComponent;
 import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.state.property.Property;
 import net.minecraft.text.Text;
@@ -38,21 +38,30 @@ public class PainterLogic {
         Block targetBlock = pickRandomBlock(palette.weights(), world.random);
         if (targetBlock == null) return false;
 
-        // 2. Identity Check: Prevent replacing a block with the exact same block
+        // 2. Identity Check: Stop if block is already the target
         if (oldState.isOf(targetBlock)) {
-            return false; // Stop! Don't consume items or damage the brush.
+            return false;
         }
 
-        // 3. Shape matching (Stair to Stair, Full to Full)
+        // 3. Shape matching: Stop if shapes aren't compatible
         if (!isCompatible(oldState.getBlock(), targetBlock)) {
             return false;
         }
 
-        // 4. Survival resource consumption
+        // 4. Survival resource check and consumption
         if (!player.isCreative()) {
             if (!consumeItem(player, targetBlock.asItem())) {
                 player.sendMessage(Text.literal("§cMissing " + targetBlock.getName().getString() + " in inventory!"), true);
                 return false;
+            }
+
+            // Return the replaced block to the player
+            Item oldItem = oldState.getBlock().asItem();
+            if (oldItem != net.minecraft.item.Items.AIR) {
+                ItemStack returnStack = new ItemStack(oldItem, 1);
+                if (!player.getInventory().insertStack(returnStack)) {
+                    player.dropItem(returnStack, false);
+                }
             }
         }
 
@@ -64,17 +73,19 @@ public class PainterLogic {
             }
         }
 
-        // 6. Replace block, play block-place sound, and damage brush
+        // 6. SUCCESS: Update world, play sound, and damage the brush
         world.setBlockState(pos, newState);
         world.playSound(null, pos, newState.getSoundGroup().getPlaceSound(), SoundCategory.BLOCKS, 1.0f, 1.0f);
 
-        EquipmentSlot slot = context.getHand() == Hand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND;
-        context.getStack().damage(1, player, slot);
+        // Damage logic: This version of the damage method automatically checks for Unbreaking!
+        if (player instanceof ServerPlayerEntity serverPlayer) {
+            EquipmentSlot slot = context.getHand() == Hand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND;
+            context.getStack().damage(1, serverPlayer, slot);
+        }
 
         return true;
     }
 
-    // Helper to safely cast and copy properties
     private static <T extends Comparable<T>> BlockState copyProperty(BlockState oldState, BlockState newState, Property<T> prop) {
         return newState.with(prop, oldState.get(prop));
     }
@@ -97,14 +108,11 @@ public class PainterLogic {
         if (oldBlock instanceof WallBlock && newBlock instanceof WallBlock) return true;
         if (oldBlock instanceof FenceBlock && newBlock instanceof FenceBlock) return true;
         if (oldBlock instanceof PillarBlock && newBlock instanceof PillarBlock) return true;
-        // Standard full blocks
         return oldBlock.getClass() == Block.class && newBlock.getClass() == Block.class;
     }
 
     private static boolean consumeItem(PlayerEntity player, Item itemToConsume) {
         PlayerInventory inv = player.getInventory();
-
-        // Pass 1: Standard Inventory slots
         for (int i = 0; i < inv.size(); i++) {
             ItemStack stack = inv.getStack(i);
             if (stack.isOf(itemToConsume)) {
@@ -112,8 +120,6 @@ public class PainterLogic {
                 return true;
             }
         }
-
-        // Pass 2: Bundle extraction
         for (int i = 0; i < inv.size(); i++) {
             ItemStack stack = inv.getStack(i);
             if (stack.contains(DataComponentTypes.BUNDLE_CONTENTS)) {
@@ -121,7 +127,6 @@ public class PainterLogic {
                 if (bundleContents != null) {
                     List<ItemStack> extractedItems = new ArrayList<>();
                     bundleContents.iterate().forEach(s -> extractedItems.add(s.copy()));
-
                     boolean found = false;
                     for (ItemStack bundleItem : extractedItems) {
                         if (bundleItem.isOf(itemToConsume) && bundleItem.getCount() > 0) {
@@ -130,8 +135,6 @@ public class PainterLogic {
                             break;
                         }
                     }
-
-                    // Rebuild and save the modified bundle
                     if (found) {
                         BundleContentsComponent.Builder builder = new BundleContentsComponent.Builder(BundleContentsComponent.DEFAULT);
                         for (ItemStack s : extractedItems) {

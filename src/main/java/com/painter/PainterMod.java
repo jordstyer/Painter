@@ -34,7 +34,8 @@ public class PainterMod implements ModInitializer {
                     // Loop through the saved blocks and display their weights
                     data.weights().forEach((block, weight) -> {
                         String blockName = block.getName().getString();
-                        lines.add(Text.literal(" §e" + weight + "  §7" + blockName));
+                        // ADDED: The % symbol right after the weight number
+                        lines.add(Text.literal(" §e" + weight + "%  §7" + blockName));
                     });
                 }
             }

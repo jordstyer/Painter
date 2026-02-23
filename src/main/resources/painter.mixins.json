@@ -3,7 +3,8 @@
   "package": "com.painter.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "BrushItemMixin"
+    "BrushItemMixin",
+    "BrushDurabilityMixin"
   ],
   "injectors": {
     "defaultRequire": 1

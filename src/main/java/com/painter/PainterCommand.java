@@ -11,11 +11,49 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.command.CommandSource;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
+import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class PainterCommand {
+
+    // Custom suggestion provider to auto-complete block IDs
+    private static final SuggestionProvider<ServerCommandSource> SUGGEST_BLOCKS = (context, builder) -> {
+        String remaining = builder.getRemaining();
+
+        // Find the start of the current word being typed
+        int lastDelim = -1;
+        for (int i = remaining.length() - 1; i >= 0; i--) {
+            char c = remaining.charAt(i);
+            if (c == ' ' || c == ',' || c == ';' || c == '=') {
+                lastDelim = i;
+                break;
+            }
+        }
+
+        String currentWord = remaining.substring(lastDelim + 1);
+
+        // If typing a number, don't suggest block names
+        if (currentWord.matches("\\d+.*")) {
+            return builder.buildFuture();
+        }
+
+        // Extract block paths without the "minecraft:" prefix for vanilla blocks
+        java.util.List<String> suggestions = new java.util.ArrayList<>();
+        for (Identifier id : Registries.BLOCK.getIds()) {
+            if (id.getNamespace().equals("minecraft")) {
+                suggestions.add(id.getPath()); // Adds "oak_planks"
+            } else {
+                suggestions.add(id.toString()); // Adds "modname:custom_block"
+            }
+        }
+
+        // Shift the builder to only replace the current word, then suggest the simplified names
+        return CommandSource.suggestMatching(suggestions, builder.createOffset(builder.getStart() + lastDelim + 1));
+    };
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
@@ -37,6 +75,7 @@ public class PainterCommand {
                     )
                     .then(CommandManager.literal("set")
                             .then(CommandManager.argument("pattern", StringArgumentType.greedyString())
+                                    .suggests(SUGGEST_BLOCKS)
                                     .executes(context -> {
                                         ServerPlayerEntity player = context.getSource().getPlayer();
                                         if (player == null) return 0;

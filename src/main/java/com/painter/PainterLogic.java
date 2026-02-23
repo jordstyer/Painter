@@ -1,8 +1,6 @@
 package com.painter;
 
 import net.minecraft.block.*;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.BundleContentsComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
@@ -18,8 +16,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 public class PainterLogic {
@@ -77,7 +73,6 @@ public class PainterLogic {
         world.setBlockState(pos, newState);
         world.playSound(null, pos, newState.getSoundGroup().getPlaceSound(), SoundCategory.BLOCKS, 1.0f, 1.0f);
 
-        // Damage logic: This version of the damage method automatically checks for Unbreaking!
         if (player instanceof ServerPlayerEntity serverPlayer) {
             EquipmentSlot slot = context.getHand() == Hand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND;
             context.getStack().damage(1, serverPlayer, slot);
@@ -113,37 +108,12 @@ public class PainterLogic {
 
     private static boolean consumeItem(PlayerEntity player, Item itemToConsume) {
         PlayerInventory inv = player.getInventory();
+        // Strictly check standard inventory slots only
         for (int i = 0; i < inv.size(); i++) {
             ItemStack stack = inv.getStack(i);
             if (stack.isOf(itemToConsume)) {
                 stack.decrement(1);
                 return true;
-            }
-        }
-        for (int i = 0; i < inv.size(); i++) {
-            ItemStack stack = inv.getStack(i);
-            if (stack.contains(DataComponentTypes.BUNDLE_CONTENTS)) {
-                BundleContentsComponent bundleContents = stack.get(DataComponentTypes.BUNDLE_CONTENTS);
-                if (bundleContents != null) {
-                    List<ItemStack> extractedItems = new ArrayList<>();
-                    bundleContents.iterate().forEach(s -> extractedItems.add(s.copy()));
-                    boolean found = false;
-                    for (ItemStack bundleItem : extractedItems) {
-                        if (bundleItem.isOf(itemToConsume) && bundleItem.getCount() > 0) {
-                            bundleItem.decrement(1);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found) {
-                        BundleContentsComponent.Builder builder = new BundleContentsComponent.Builder(BundleContentsComponent.DEFAULT);
-                        for (ItemStack s : extractedItems) {
-                            if (!s.isEmpty()) builder.add(s);
-                        }
-                        stack.set(DataComponentTypes.BUNDLE_CONTENTS, builder.build());
-                        return true;
-                    }
-                }
             }
         }
         return false;

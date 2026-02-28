@@ -9,17 +9,23 @@ public class PainterClient implements ClientModInitializer {
     public void onInitializeClient() {
         ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
             if (stack.contains(PainterMod.PALETTE_COMPONENT)) {
-                // Read persistence data
+                // 1. Display active profile if it exists
+                if (stack.contains(PainterMod.ACTIVE_PROFILE_COMPONENT)) {
+                    String profileName = stack.get(PainterMod.ACTIVE_PROFILE_COMPONENT);
+                    lines.add(Text.literal("§6📁 Profile: §f" + profileName));
+                }
+
+                // 2. Display brush settings
                 int size = stack.getOrDefault(PainterMod.BRUSH_SIZE_COMPONENT, 1);
                 PainterMod.BrushShape shape = stack.getOrDefault(PainterMod.BRUSH_SHAPE_COMPONENT, PainterMod.BrushShape.SQUARE);
-
                 lines.add(Text.literal("§b📐 Size: " + size + "x" + size + " §7(" + shape.name() + ")"));
 
+                // 3. Display Palette weights
                 PaletteData data = stack.get(PainterMod.PALETTE_COMPONENT);
                 if (data != null && !data.weights().isEmpty()) {
-                    lines.add(Text.literal("§6🎨 Active Palette:"));
+                    lines.add(Text.literal("§e🎨 Active Palette:"));
                     data.weights().forEach((block, weight) -> {
-                        lines.add(Text.literal(" §e" + weight + "%  §7" + block.getName().getString()));
+                        lines.add(Text.literal("  §7- " + block.getName().getString() + ": §f" + weight + "%"));
                     });
                 }
             }

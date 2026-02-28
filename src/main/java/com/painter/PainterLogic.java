@@ -65,7 +65,7 @@ public class PainterLogic {
             world.playSound(null, centerPos, lastState.getSoundGroup().getPlaceSound(), SoundCategory.BLOCKS, 1.0f, 1.0f);
             if (world instanceof ServerWorld sw) {
                 sw.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, lastState),
-                        centerPos.getX() + 0.5, centerPos.getY() + 0.5, centerPos.getZ() + 0.5, 10, 0.5, 0.5, 0.5, 0.1);
+                        centerPos.getX() + 0.5, centerPos.getY() + 0.5, centerPos.getZ() + 0.5, 10 + (size * 2), 0.5, 0.5, 0.5, 0.1);
             }
 
             if (!player.isCreative()) {
@@ -88,7 +88,6 @@ public class PainterLogic {
         double y = (double)b - offset;
         double r = (double)size / 2.0;
 
-        // FIXED: Added SQUARE case to ensure switch is exhaustive
         return switch (shape) {
             case SQUARE -> true;
             case CIRCLE -> (x * x + y * y) < (r * r);
@@ -133,9 +132,27 @@ public class PainterLogic {
     }
 
     private static boolean isCompatible(Block b1, Block b2) {
-        return b1.getClass().equals(b2.getClass()) ||
-                (b1 instanceof StairsBlock && b2 instanceof StairsBlock) ||
-                (b1 instanceof SlabBlock && b2 instanceof SlabBlock);
+        // 1. Exact match bypass (Stairs -> Stairs)
+        if (b1.getClass().equals(b2.getClass())) return true;
+
+        // 2. Allow Pillar swaps (Logs -> Basalt)
+        if (b1 instanceof PillarBlock && b2 instanceof PillarBlock) return true;
+
+        // 3. FRAGILE GUARD: Ignore plants, fluids, containers, and multi-blocks completely
+        boolean b1IsFragile = b1 instanceof PlantBlock || b1 instanceof FluidBlock ||
+                b1 instanceof BlockWithEntity || b1 instanceof DoorBlock ||
+                b1 instanceof TrapdoorBlock || b1 instanceof BedBlock ||
+                b1 instanceof CarpetBlock;
+
+        // If we are trying to paint OVER a fragile block, deny it.
+        if (b1IsFragile) return false;
+
+        // 4. STRUCTURAL GUARD: Define strict architectural shapes
+        boolean b1IsStructural = b1 instanceof StairsBlock || b1 instanceof SlabBlock || b1 instanceof WallBlock || b1 instanceof FenceBlock || b1 instanceof PaneBlock;
+        boolean b2IsStructural = b2 instanceof StairsBlock || b2 instanceof SlabBlock || b2 instanceof WallBlock || b2 instanceof FenceBlock || b2 instanceof PaneBlock;
+
+        // 5. If it's not Fragile, and neither block is Structural, they are both safe full blocks (Dirt -> Stone)
+        return !b1IsStructural && !b2IsStructural;
     }
 
     private static boolean consumeItem(PlayerEntity player, Item item) {

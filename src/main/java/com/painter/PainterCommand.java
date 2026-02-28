@@ -43,6 +43,7 @@ public class PainterCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(CommandManager.literal("paintbrush")
+                    // Size Command
                     .then(CommandManager.literal("size")
                             .then(CommandManager.argument("value", IntegerArgumentType.integer(1, 5))
                                     .executes(context -> {
@@ -56,11 +57,13 @@ public class PainterCommand {
                                     })
                             )
                     )
+                    // Shape Command
                     .then(CommandManager.literal("shape")
                             .then(CommandManager.literal("square").executes(context -> setShape(context.getSource().getPlayer(), PainterMod.BrushShape.SQUARE)))
                             .then(CommandManager.literal("circle").executes(context -> setShape(context.getSource().getPlayer(), PainterMod.BrushShape.CIRCLE)))
                             .then(CommandManager.literal("diamond").executes(context -> setShape(context.getSource().getPlayer(), PainterMod.BrushShape.DIAMOND)))
                     )
+                    // Existing Palette commands
                     .then(CommandManager.literal("set")
                             .then(CommandManager.argument("pattern", StringArgumentType.greedyString())
                                     .suggests(SUGGEST_BLOCKS)

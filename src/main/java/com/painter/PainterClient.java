@@ -9,6 +9,7 @@ public class PainterClient implements ClientModInitializer {
     public void onInitializeClient() {
         ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
             if (stack.contains(PainterMod.PALETTE_COMPONENT)) {
+                // Read persistence data
                 int size = stack.getOrDefault(PainterMod.BRUSH_SIZE_COMPONENT, 1);
                 PainterMod.BrushShape shape = stack.getOrDefault(PainterMod.BRUSH_SHAPE_COMPONENT, PainterMod.BrushShape.SQUARE);
 

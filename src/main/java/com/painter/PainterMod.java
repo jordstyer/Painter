@@ -19,7 +19,7 @@ public class PainterMod implements ModInitializer {
         );
     }
 
-    // Palette storage (Blocks + Weights)
+    // Palette storage
     public static final ComponentType<PaletteData> PALETTE_COMPONENT = Registry.register(
             Registries.DATA_COMPONENT_TYPE,
             Identifier.of(MOD_ID, "palette"),

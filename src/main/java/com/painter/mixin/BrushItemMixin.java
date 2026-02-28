@@ -35,4 +35,14 @@ public class BrushItemMixin {
             }
         }
     }
+
+    /**
+     * Allows the Brush to be enchanted in an Enchanting Table.
+     * By default, brushes have an enchantability of 0.
+     */
+    @Inject(method = "getEnchantability", at = @At("HEAD"), cancellable = true)
+    private void painter$boostEnchantability(CallbackInfoReturnable<Integer> cir) {
+        // Set to 15 (equivalent to Iron tools)
+        cir.setReturnValue(15);
+    }
 }

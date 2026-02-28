@@ -1,62 +1,60 @@
-🎨 Painter Mod
+🎨 Painter Mod v2.0
 
-Painter is a specialized Fabric mod for Minecraft 1.21.11 designed to make texturing and detailing large builds in Survival mode intuitive, fair, and satisfying. Inspired by the command syntax of WorldEdit, this mod turns the standard Brush into a powerful architectural tool.
+Painter is a professional-grade architectural tool for Minecraft 1.21.11. It transforms the standard Brush into a versatile texturing device, allowing Survival players to detail massive structures with speed, precision, and fairness.
 
-✨ Features
+✨ Key Features
 
-🛠️ Command System
+|
 
-Dynamic Pattern Parsing: Easily set your palette using [weight] [block] syntax (e.g., /paintbrush set 50 stone, 50 stone_bricks).
-
-Smart Defaults: If you omit the weight, the mod auto-assigns 100% to that block (e.g., /paintbrush set spruce_planks).
-
-Tab-Completion: Full support for block ID suggestions. It intelligently omits the minecraft: prefix to keep your chat history clean and prevent hitting character limits.
+| Category | Feature | Description |
+| Area of Effect | Brush Size | Adjust your reach from 1x1 to 5x5 for rapid texturing. |
+|  | Brush Shapes | Choose between Square, Circle, and Diamond patterns. |
+| Management | Profiles | Save your favorite block blends (Size + Shape + Palette) to named profiles. |
+|  | Persistence | Profiles are stored in config/painter/profiles.json and persist across sessions. |
+| UX & UI | Rich Tooltips | Hover over your brush to see the active Profile, Size, Shape, and Palette weights. |
+|  | Help System | Built-in /paintbrush help command for instant syntax guidance. |
+| Optimization | Batching | Consolidates sounds and inventory updates into single "ticks" to prevent lag. |
 
 ⚖️ Survival-First Mechanics
 
-1:1 Item Swap: To keep things balanced, the mod consumes one block from your inventory for every block placed. In return, the replaced block is added back to your inventory.
+Painter is designed for legitimate survival play. It doesn't just "cheat" blocks into the world; it acts as a smart exchanger.
 
-Inventory Safety: If your inventory is full, replaced blocks are dropped safely at your feet rather than being deleted.
+🛡️ The Fair-Play System
 
-Resource Guard: Durability and items are only consumed if a block is actually changed. Clicking on an identical block or an incompatible shape costs nothing.
+| Interaction | Result | Requirement |
+| Standard Blocks | 1:1 Swap (e.g., Stone for Cobble) | None |
+| Natural Blocks | Downgrades (Grass $\rightarrow$ Dirt) | Default |
+| Natural Blocks | Exact Swap (Grass $\rightarrow$ Grass) | Silk Touch Enchantment |
+| Ores | Block Destroyed (Drops Nothing) | Default (Anti-Mining Guard) |
+| Ores | Exact Swap (Diamond Ore $\rightarrow$ Ore) | Silk Touch Enchantment |
+| Unbreakable | Action Denied (Bedrock, Portals) | N/A (Hardness Guard) |
 
-🔨 Tool Enhancements
+🧩 Intelligent Safety Guards
 
-Upgraded Durability: The Brush base durability is increased from 64 to 128.
+Fragile Guard: The brush automatically ignores flowers, grass, crops, water, torches, and containers. You can texture a field without deleting your flowers or a house without replacing your chests.
 
-Enchantment Support: Fully compatible with Unbreaking (to save durability) and Mending (to repair via XP orbs).
+Shape Matching: Orientation is preserved. Swapping a North-facing Oak Stair for a Stone Stair keeps it facing North.
 
-UI Tooltips: Hover over your Brush to see your active palette and the percentage chances for each block.
+⌨️ Command Reference
 
-🧩 Intelligent Logic
-
-Shape Matching: The mod respects your architecture. It only swaps compatible classes (Stairs $\rightarrow$ Stairs, Slabs $\rightarrow$ Slabs), ensuring that orientations and "upside-down" states are perfectly preserved.
-
-Weighted Randomization: A robust distribution algorithm ensures your textures look exactly as varied as you intended.
-
-🔊 Aesthetic Polish
-
-Feedback Loops: Every successful paint stroke triggers block-specific particles and placement sounds, providing a "punchy" and satisfying building experience.
-
-🚀 Roadmap: Version 2.0
-
-We are hard at work on the next iteration of the Painter mod. Planned features include:
-
-Palette Profiles: Save and load named palettes (e.g., /paintbrush save castle_wall) via local configs or data components.
-
-Undo Function: A limited history buffer to quickly revert accidental paint strokes.
-
-Area Effect: A toggleable "radius" mode to texture larger surfaces with a single click.
+| Command | Usage | Description |
+| help | /paintbrush help | Displays the in-game command guide. |
+| set | /paintbrush set 50 stone, 50 grass | Sets the block palette with optional weights. |
+| size | /paintbrush size <1-5> | Changes the brush radius. |
+| shape | /paintbrush shape <type> | Options: square, circle, diamond. |
+| save | /paintbrush save <name> | Saves current settings to a permanent profile. |
+| load | /paintbrush load <name> | Loads a saved profile onto the brush in hand. |
+| clear | /paintbrush clear | Wipes all custom data from the brush. |
 
 📥 Installation
 
-Ensure you have the Fabric Loader installed for Minecraft 1.21.11.
+Fabric Loader: Required for Minecraft 1.21.11.
 
-Download the latest .jar from the releases page.
+Dependencies: None (Optional: Fabric API).
 
-Place the file in your .minecraft/mods folder.
+Setup: Drop the .jar into your mods folder.
 
-(Optional) Install the Fabric API for full compatibility.
+Configuration: Profiles are saved at config/painter/profiles.json.
 
 📜 License
 

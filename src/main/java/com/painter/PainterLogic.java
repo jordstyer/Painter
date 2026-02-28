@@ -6,13 +6,18 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
+import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.tag.TagKey;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.state.property.Property;
 import net.minecraft.util.Hand;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.random.Random;
@@ -49,12 +54,13 @@ public class PainterLogic {
                 if (!isInShape(a, b, size, shape)) continue;
 
                 BlockPos targetPos = getRelativePos(centerPos, side, a, b);
-                Item item = paintSingle(world, targetPos, player, palette);
+                Item item = paintSingle(world, targetPos, player, palette, brush);
 
                 if (item != null) {
                     changedCount++;
                     lastState = world.getBlockState(targetPos);
-                    if (item != net.minecraft.item.Items.AIR) {
+                    // If the item is AIR, it was destroyed by the anti-cheat and isn't returned
+                    if (item != Items.AIR) {
                         returnedItems.put(item, returnedItems.getOrDefault(item, 0) + 1);
                     }
                 }
@@ -95,10 +101,14 @@ public class PainterLogic {
         };
     }
 
-    private static Item paintSingle(World world, BlockPos pos, PlayerEntity player, PaletteData palette) {
+    private static Item paintSingle(World world, BlockPos pos, PlayerEntity player, PaletteData palette, ItemStack brush) {
         BlockState oldState = world.getBlockState(pos);
+
+        // 1. UNBREAKABLE GUARD: Prevent painting Bedrock, End Portals, etc.
+        if (oldState.getHardness(world, pos) < 0.0F) return null;
+
         Block target = pickRandom(palette.weights(), world.random);
-        if (target == null || oldState.isOf(target) || !isCompatible(oldState.getBlock(), target)) return null;
+        if (target == null || oldState.isOf(target) || !isCompatible(oldState, target)) return null;
         if (!player.isCreative() && !consumeItem(player, target.asItem())) return null;
 
         BlockState newState = target.getDefaultState();
@@ -106,7 +116,53 @@ public class PainterLogic {
             if (newState.contains(prop)) newState = copyProp(oldState, newState, prop);
         }
         world.setBlockState(pos, newState, 2);
-        return oldState.getBlock().asItem();
+
+        // Return the item evaluated by our Silk Touch/Anti-Cheat logic
+        return getReturnedItem(oldState, brush);
+    }
+
+    private static Item getReturnedItem(BlockState state, ItemStack brush) {
+        Block block = state.getBlock();
+        String blockId = Registries.BLOCK.getId(block).getPath();
+        TagKey<Block> cOres = TagKey.of(RegistryKeys.BLOCK, Identifier.of("c", "ores"));
+
+        // Check 1.21 component data safely for the Silk Touch enchantment ID
+        boolean hasSilkTouch = false;
+        for (var entry : brush.getEnchantments().getEnchantmentEntries()) {
+            if (entry.getKey().getKey().isPresent()) {
+                String enchId = entry.getKey().getKey().get().getValue().getPath();
+                if (enchId.equals("silk_touch")) {
+                    hasSilkTouch = true;
+                    break;
+                }
+            }
+        }
+
+        // Anti-Cheat: Downgrade or destroy restricted natural blocks if Silk Touch is missing
+        if (!hasSilkTouch) {
+
+            // 1. ORES: Destroy completely. Drops nothing (Items.AIR). Prevents free diamonds!
+            if (state.isIn(cOres) || blockId.endsWith("_ore") || blockId.equals("ancient_debris")) {
+                return Items.AIR;
+            }
+            // 2. STONE: Downgrades to Cobblestone
+            if (block == Blocks.STONE) {
+                return Items.COBBLESTONE;
+            }
+            if (block == Blocks.DEEPSLATE) {
+                return Items.COBBLED_DEEPSLATE;
+            }
+            // 3. GRASS & DIRT: Downgrades to plain Dirt
+            if (block == Blocks.GRASS_BLOCK || block == Blocks.MYCELIUM || block == Blocks.PODZOL || block == Blocks.DIRT_PATH) {
+                return Items.DIRT;
+            }
+            if (block == Blocks.CRIMSON_NYLIUM || block == Blocks.WARPED_NYLIUM) {
+                return Items.NETHERRACK;
+            }
+        }
+
+        // Safe blocks (Glass, Planks, Bricks) or Silk-Touched blocks return exact item
+        return block.asItem();
     }
 
     private static BlockPos getRelativePos(BlockPos pos, Direction side, int a, int b) {
@@ -131,28 +187,25 @@ public class PainterLogic {
         return null;
     }
 
-    private static boolean isCompatible(Block b1, Block b2) {
-        // 1. Exact match bypass (Stairs -> Stairs)
-        if (b1.getClass().equals(b2.getClass())) return true;
+    private static boolean isCompatible(BlockState oldState, Block target) {
+        Block b1 = oldState.getBlock();
 
-        // 2. Allow Pillar swaps (Logs -> Basalt)
-        if (b1 instanceof PillarBlock && b2 instanceof PillarBlock) return true;
+        if (b1.getClass().equals(target.getClass())) return true;
+        if (b1 instanceof PillarBlock && target instanceof PillarBlock) return true;
 
-        // 3. FRAGILE GUARD: Ignore plants, fluids, containers, and multi-blocks completely
+        // Ores are NO LONGER blocked here! You can freely paint over them.
+
         boolean b1IsFragile = b1 instanceof PlantBlock || b1 instanceof FluidBlock ||
                 b1 instanceof BlockWithEntity || b1 instanceof DoorBlock ||
                 b1 instanceof TrapdoorBlock || b1 instanceof BedBlock ||
                 b1 instanceof CarpetBlock;
 
-        // If we are trying to paint OVER a fragile block, deny it.
         if (b1IsFragile) return false;
 
-        // 4. STRUCTURAL GUARD: Define strict architectural shapes
         boolean b1IsStructural = b1 instanceof StairsBlock || b1 instanceof SlabBlock || b1 instanceof WallBlock || b1 instanceof FenceBlock || b1 instanceof PaneBlock;
-        boolean b2IsStructural = b2 instanceof StairsBlock || b2 instanceof SlabBlock || b2 instanceof WallBlock || b2 instanceof FenceBlock || b2 instanceof PaneBlock;
+        boolean targetIsStructural = target instanceof StairsBlock || target instanceof SlabBlock || target instanceof WallBlock || target instanceof FenceBlock || target instanceof PaneBlock;
 
-        // 5. If it's not Fragile, and neither block is Structural, they are both safe full blocks (Dirt -> Stone)
-        return !b1IsStructural && !b2IsStructural;
+        return !b1IsStructural && !targetIsStructural;
     }
 
     private static boolean consumeItem(PlayerEntity player, Item item) {

@@ -116,7 +116,10 @@ public class PainterLogic {
     private static Item paintSingle(World world, BlockPos pos, PlayerEntity player, PaletteData palette, ItemStack brush, Set<Block> missingBlocks) {
         BlockState oldState = world.getBlockState(pos);
 
-        // 1. UNBREAKABLE GUARD: Prevent painting Bedrock, End Portals, etc.
+        // 1. AIR GUARD: Prevent painting in mid-air.
+        if (oldState.isAir()) return null;
+
+        // 2. UNBREAKABLE GUARD: Prevent painting Bedrock, End Portals, etc.
         if (oldState.getHardness(world, pos) < 0.0F) return null;
 
         Block target = pickRandom(palette.weights(), world.random);

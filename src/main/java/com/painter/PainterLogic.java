@@ -16,6 +16,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.state.property.Property;
+import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -23,7 +24,10 @@ import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class PainterLogic {
 
@@ -42,6 +46,7 @@ public class PainterLogic {
         Direction side = context.getSide();
 
         Map<Item, Integer> returnedItems = new HashMap<>();
+        Set<Block> missingBlocks = new HashSet<>();
         int changedCount = 0;
         BlockState lastState = null;
 
@@ -54,7 +59,7 @@ public class PainterLogic {
                 if (!isInShape(a, b, size, shape)) continue;
 
                 BlockPos targetPos = getRelativePos(centerPos, side, a, b);
-                Item item = paintSingle(world, targetPos, player, palette, brush);
+                Item item = paintSingle(world, targetPos, player, palette, brush, missingBlocks);
 
                 if (item != null) {
                     changedCount++;
@@ -65,6 +70,13 @@ public class PainterLogic {
                     }
                 }
             }
+        }
+
+        if (!missingBlocks.isEmpty() && player instanceof ServerPlayerEntity) {
+            String missingBlockNames = missingBlocks.stream()
+                    .map(block -> block.getName().getString())
+                    .collect(Collectors.joining(", "));
+            player.sendMessage(Text.literal("§cOut of stock: §f" + missingBlockNames), true);
         }
 
         if (changedCount > 0 && lastState != null) {
@@ -101,7 +113,7 @@ public class PainterLogic {
         };
     }
 
-    private static Item paintSingle(World world, BlockPos pos, PlayerEntity player, PaletteData palette, ItemStack brush) {
+    private static Item paintSingle(World world, BlockPos pos, PlayerEntity player, PaletteData palette, ItemStack brush, Set<Block> missingBlocks) {
         BlockState oldState = world.getBlockState(pos);
 
         // 1. UNBREAKABLE GUARD: Prevent painting Bedrock, End Portals, etc.
@@ -109,7 +121,11 @@ public class PainterLogic {
 
         Block target = pickRandom(palette.weights(), world.random);
         if (target == null || oldState.isOf(target) || !isCompatible(oldState, target)) return null;
-        if (!player.isCreative() && !consumeItem(player, target.asItem())) return null;
+
+        if (!player.isCreative() && !consumeItem(player, target.asItem())) {
+            missingBlocks.add(target);
+            return null;
+        }
 
         BlockState newState = target.getDefaultState();
         for (Property<?> prop : oldState.getProperties()) {

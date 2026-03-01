@@ -2,6 +2,8 @@ package com.painter;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 
 public class PainterClient implements ClientModInitializer {
@@ -24,8 +26,17 @@ public class PainterClient implements ClientModInitializer {
                 PaletteData data = stack.get(PainterMod.PALETTE_COMPONENT);
                 if (data != null && !data.weights().isEmpty()) {
                     lines.add(Text.literal("§e🎨 Active Palette:"));
+
+                    PlayerEntity player = MinecraftClient.getInstance().player;
+
                     data.weights().forEach((block, weight) -> {
-                        lines.add(Text.literal("  §7- " + block.getName().getString() + ": §f" + weight + "%"));
+                        String check = "";
+                        if (player != null) {
+                            // Check if the player has the block in their inventory
+                            boolean hasBlock = player.getInventory().count(block.asItem()) > 0;
+                            check = hasBlock ? "§a✓ " : "§c✗ ";
+                        }
+                        lines.add(Text.literal("  " + check + "§7- " + block.getName().getString() + ": §f" + weight + "%"));
                     });
                 }
             }

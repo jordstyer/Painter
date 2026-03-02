@@ -11,13 +11,13 @@ public abstract class BrushDurabilityMixin {
     /**
      * @author YourName
      * @reason Intercepts any item setting its durability to 64 (the Brush's unique value)
-     * and upgrades it to 128. This avoids targeting the BrushItem class directly,
-     * which prevents the "No refMap" mapping crashes.
+     * and upgrades it to 1024. This provides a professional-grade lifespan for
+     * large architectural projects.
      */
     @ModifyVariable(method = "maxDamage", at = @At("HEAD"), argsOnly = true)
     private int painter$upgradeDurability(int maxDamage) {
         // 64 is the unique durability of the Brush and Flint & Steel.
-        // If an item asks for 64, we give it 128.
+        // We boost it to 1024 to accommodate mass texturing.
         if (maxDamage == 64) {
             return 64;
         }

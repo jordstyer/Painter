@@ -154,6 +154,33 @@ public class PainterCommand {
                                     })
                             )
                     )
+                    .then(CommandManager.literal("mask")
+                            .then(CommandManager.argument("blocks", StringArgumentType.greedyString())
+                                    .suggests(SUGGEST_BLOCKS)
+                                    .executes(context -> {
+                                        ServerPlayerEntity player = context.getSource().getPlayer();
+                                        if (player != null) {
+                                            String pattern = StringArgumentType.getString(context, "blocks");
+                                            Map<Block, Integer> blocks = parsePattern(pattern);
+                                            if (blocks.isEmpty()) return 0;
+
+                                            player.getMainHandStack().set(PainterMod.MASK_COMPONENT, new PaletteData(blocks));
+                                            player.sendMessage(Text.literal("§aBrush mask updated!"), true);
+                                        }
+                                        return 1;
+                                    })
+                            )
+                            .then(CommandManager.literal("clear")
+                                    .executes(context -> {
+                                        ServerPlayerEntity player = context.getSource().getPlayer();
+                                        if (player != null) {
+                                            player.getMainHandStack().remove(PainterMod.MASK_COMPONENT);
+                                            player.sendMessage(Text.literal("§eBrush mask cleared."), true);
+                                        }
+                                        return 1;
+                                    })
+                            )
+                    )
                     .then(CommandManager.literal("clear")
                             .executes(context -> {
                                 ServerPlayerEntity player = context.getSource().getPlayer();
@@ -161,7 +188,8 @@ public class PainterCommand {
                                     ItemStack stack = player.getMainHandStack();
                                     stack.remove(PainterMod.PALETTE_COMPONENT);
                                     stack.remove(PainterMod.ACTIVE_PROFILE_COMPONENT);
-                                    player.sendMessage(Text.literal("§eBrush palette cleared."), true);
+                                    stack.remove(PainterMod.MASK_COMPONENT);
+                                    player.sendMessage(Text.literal("§eBrush palette and mask cleared."), true);
                                 }
                                 return 1;
                             })
@@ -173,6 +201,7 @@ public class PainterCommand {
     private static void sendHelpMessage(ServerCommandSource source) {
         source.sendFeedback(() -> Text.literal("§6§l=== Painter Mod Help ==="), false);
         source.sendFeedback(() -> Text.literal("§e/paintbrush set <pattern> §7- Define blocks (e.g. 50 stone, 50 grass)"), false);
+        source.sendFeedback(() -> Text.literal("§e/paintbrush mask <blocks> §7- Set blocks to target (e.g. stone,dirt)"), false);
         source.sendFeedback(() -> Text.literal("§e/paintbrush size <1-5> §7- Adjust brush radius"), false);
         source.sendFeedback(() -> Text.literal("§e/paintbrush shape <type> §7- Square, Circle, or Diamond"), false);
         source.sendFeedback(() -> Text.literal("§e/paintbrush save <name> §7- Save current settings to a profile"), false);

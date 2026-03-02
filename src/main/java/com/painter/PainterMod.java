@@ -36,11 +36,17 @@ public class PainterMod implements ModInitializer {
             ComponentType.<BrushShape>builder().codec(BrushShape.CODEC).build()
     );
 
-    // NEW: Stores the name of the loaded profile for the tooltip
     public static final ComponentType<String> ACTIVE_PROFILE_COMPONENT = Registry.register(
             Registries.DATA_COMPONENT_TYPE,
             Identifier.of(MOD_ID, "active_profile"),
             ComponentType.<String>builder().codec(Codec.STRING).build()
+    );
+
+    // NEW: Stores the set of blocks that can be replaced.
+    public static final ComponentType<PaletteData> MASK_COMPONENT = Registry.register(
+            Registries.DATA_COMPONENT_TYPE,
+            Identifier.of(MOD_ID, "mask"),
+            ComponentType.<PaletteData>builder().codec(PaletteData.CODEC).build()
     );
 
     @Override

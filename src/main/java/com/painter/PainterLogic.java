@@ -116,10 +116,18 @@ public class PainterLogic {
     private static Item paintSingle(World world, BlockPos pos, PlayerEntity player, PaletteData palette, ItemStack brush, Set<Block> missingBlocks) {
         BlockState oldState = world.getBlockState(pos);
 
-        // 1. AIR GUARD: Prevent painting in mid-air.
+        // 1. MASK GUARD: If a mask is set, only replace blocks in the mask.
+        if (brush.contains(PainterMod.MASK_COMPONENT)) {
+            PaletteData mask = brush.get(PainterMod.MASK_COMPONENT);
+            if (mask != null && !mask.weights().containsKey(oldState.getBlock())) {
+                return null;
+            }
+        }
+
+        // 2. AIR GUARD: Prevent painting in mid-air.
         if (oldState.isAir()) return null;
 
-        // 2. UNBREAKABLE GUARD: Prevent painting Bedrock, End Portals, etc.
+        // 3. UNBREAKABLE GUARD: Prevent painting Bedrock, End Portals, etc.
         if (oldState.getHardness(world, pos) < 0.0F) return null;
 
         Block target = pickRandom(palette.weights(), world.random);

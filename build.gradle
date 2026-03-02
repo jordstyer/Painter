@@ -2,7 +2,7 @@ plugins {
     id 'fabric-loom' version '1.14.7'
 }
 
-version = '2.0.1'
+version = '3.0.0'
 group = 'com.painter'
 
 repositories {
@@ -17,6 +17,9 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // Explicitly include the rendering module so LevelRenderEvents is available at compile time
+    modImplementation(fabricApi.module("fabric-rendering-v1", project.fabric_version))
 }
 
 processResources {

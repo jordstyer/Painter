@@ -16,6 +16,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.state.property.Property;
+import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -23,7 +24,10 @@ import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class PainterLogic {
 
@@ -42,6 +46,7 @@ public class PainterLogic {
         Direction side = context.getSide();
 
         Map<Item, Integer> returnedItems = new HashMap<>();
+        Set<Block> missingBlocks = new HashSet<>();
         int changedCount = 0;
         BlockState lastState = null;
 
@@ -54,7 +59,7 @@ public class PainterLogic {
                 if (!isInShape(a, b, size, shape)) continue;
 
                 BlockPos targetPos = getRelativePos(centerPos, side, a, b);
-                Item item = paintSingle(world, targetPos, player, palette, brush);
+                Item item = paintSingle(world, targetPos, player, palette, brush, missingBlocks);
 
                 if (item != null) {
                     changedCount++;
@@ -65,6 +70,13 @@ public class PainterLogic {
                     }
                 }
             }
+        }
+
+        if (!missingBlocks.isEmpty() && player instanceof ServerPlayerEntity) {
+            String missingBlockNames = missingBlocks.stream()
+                    .map(block -> block.getName().getString())
+                    .collect(Collectors.joining(", "));
+            player.sendMessage(Text.literal("§cOut of stock: §f" + missingBlockNames), true);
         }
 
         if (changedCount > 0 && lastState != null) {
@@ -79,9 +91,9 @@ public class PainterLogic {
                     ItemStack stack = new ItemStack(item, count);
                     if (!player.getInventory().insertStack(stack)) player.dropItem(stack, false);
                 });
-                if (player instanceof ServerPlayerEntity sp) {
-                    brush.damage(changedCount, sp, context.getHand() == Hand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND);
-                }
+                // if (player instanceof ServerPlayerEntity sp) {
+                //     brush.damage(changedCount, sp, context.getHand() == Hand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND);
+                // }
             }
             return true;
         }
@@ -101,15 +113,30 @@ public class PainterLogic {
         };
     }
 
-    private static Item paintSingle(World world, BlockPos pos, PlayerEntity player, PaletteData palette, ItemStack brush) {
+    private static Item paintSingle(World world, BlockPos pos, PlayerEntity player, PaletteData palette, ItemStack brush, Set<Block> missingBlocks) {
         BlockState oldState = world.getBlockState(pos);
 
-        // 1. UNBREAKABLE GUARD: Prevent painting Bedrock, End Portals, etc.
+        // 1. MASK GUARD: If a mask is set, only replace blocks in the mask.
+        if (brush.contains(PainterMod.MASK_COMPONENT)) {
+            PaletteData mask = brush.get(PainterMod.MASK_COMPONENT);
+            if (mask != null && !mask.weights().containsKey(oldState.getBlock())) {
+                return null;
+            }
+        }
+
+        // 2. AIR GUARD: Prevent painting in mid-air.
+        if (oldState.isAir()) return null;
+
+        // 3. UNBREAKABLE GUARD: Prevent painting Bedrock, End Portals, etc.
         if (oldState.getHardness(world, pos) < 0.0F) return null;
 
         Block target = pickRandom(palette.weights(), world.random);
         if (target == null || oldState.isOf(target) || !isCompatible(oldState, target)) return null;
-        if (!player.isCreative() && !consumeItem(player, target.asItem())) return null;
+
+        if (!player.isCreative() && !consumeItem(player, target.asItem())) {
+            missingBlocks.add(target);
+            return null;
+        }
 
         BlockState newState = target.getDefaultState();
         for (Property<?> prop : oldState.getProperties()) {
@@ -117,51 +144,22 @@ public class PainterLogic {
         }
         world.setBlockState(pos, newState, 2);
 
-        // Return the item evaluated by our Silk Touch/Anti-Cheat logic
-        return getReturnedItem(oldState, brush);
+        // Return the item evaluated by our anti-cheat logic
+        return getReturnedItem(oldState);
     }
 
-    private static Item getReturnedItem(BlockState state, ItemStack brush) {
+    private static Item getReturnedItem(BlockState state) {
         Block block = state.getBlock();
         String blockId = Registries.BLOCK.getId(block).getPath();
         TagKey<Block> cOres = TagKey.of(RegistryKeys.BLOCK, Identifier.of("c", "ores"));
 
-        // Check 1.21 component data safely for the Silk Touch enchantment ID
-        boolean hasSilkTouch = false;
-        for (var entry : brush.getEnchantments().getEnchantmentEntries()) {
-            if (entry.getKey().getKey().isPresent()) {
-                String enchId = entry.getKey().getKey().get().getValue().getPath();
-                if (enchId.equals("silk_touch")) {
-                    hasSilkTouch = true;
-                    break;
-                }
-            }
+        // Anti-Cheat: Prevent ore duplication.
+        // ORES: Destroy completely. Drops nothing (Items.AIR).
+        if (state.isIn(cOres) || blockId.endsWith("_ore") || blockId.equals("ancient_debris")) {
+            return Items.AIR;
         }
 
-        // Anti-Cheat: Downgrade or destroy restricted natural blocks if Silk Touch is missing
-        if (!hasSilkTouch) {
-
-            // 1. ORES: Destroy completely. Drops nothing (Items.AIR). Prevents free diamonds!
-            if (state.isIn(cOres) || blockId.endsWith("_ore") || blockId.equals("ancient_debris")) {
-                return Items.AIR;
-            }
-            // 2. STONE: Downgrades to Cobblestone
-            if (block == Blocks.STONE) {
-                return Items.COBBLESTONE;
-            }
-            if (block == Blocks.DEEPSLATE) {
-                return Items.COBBLED_DEEPSLATE;
-            }
-            // 3. GRASS & DIRT: Downgrades to plain Dirt
-            if (block == Blocks.GRASS_BLOCK || block == Blocks.MYCELIUM || block == Blocks.PODZOL || block == Blocks.DIRT_PATH) {
-                return Items.DIRT;
-            }
-            if (block == Blocks.CRIMSON_NYLIUM || block == Blocks.WARPED_NYLIUM) {
-                return Items.NETHERRACK;
-            }
-        }
-
-        // Safe blocks (Glass, Planks, Bricks) or Silk-Touched blocks return exact item
+        // For all other blocks, return the exact item that was replaced.
         return block.asItem();
     }
 

@@ -19,7 +19,7 @@ public abstract class BrushDurabilityMixin {
         // 64 is the unique durability of the Brush and Flint & Steel.
         // We boost it to 1024 to accommodate mass texturing.
         if (maxDamage == 64) {
-            return 1024;
+            return 64;
         }
         return maxDamage;
     }

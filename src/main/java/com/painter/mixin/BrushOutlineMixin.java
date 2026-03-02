@@ -1,14 +1,12 @@
 package com.painter.mixin;
 
 import com.painter.PainterMod;
-import com.painter.PaletteData;
-import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.VertexRendering;
 import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.state.OutlineRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -26,34 +24,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(WorldRenderer.class)
 public class BrushOutlineMixin {
 
-    /**
-     * Injects after vanilla draws the single block outline.
-     * We draw additional outlines for all blocks in the brush area.
-     *
-     * The method signature uses the camera position and vertex consumer provider
-     * that vanilla passes when rendering the block outline each frame.
-     */
-    @Inject(
-        method = "drawBlockOutline",
-        at = @At("RETURN")
-    )
-    private void drawBrushAreaOutline(MatrixStack matrices, VertexConsumerProvider.Immediate vertexConsumers,
-                                       double cameraX, double cameraY, double cameraZ,
-                                       BlockPos pos, BlockState state, CallbackInfo ci) {
+    @Inject(method = "drawBlockOutline", at = @At("RETURN"))
+    private void drawBrushAreaOutline(MatrixStack matrices, VertexConsumer vertexConsumer,
+                                      double cameraX, double cameraY, double cameraZ,
+                                      OutlineRenderState outlineRenderState, int color, float lineWidth,
+                                      CallbackInfo ci) {
 
         MinecraftClient client = MinecraftClient.getInstance();
         PlayerEntity player = client.player;
         World world = client.world;
         if (player == null || world == null) return;
 
-        // Check main hand first, then offhand
+        // Only activate when holding a configured Painter brush
         ItemStack stack = player.getMainHandStack();
         if (!isBrush(stack)) {
             stack = player.getOffHandStack();
             if (!isBrush(stack)) return;
         }
 
-        // Must be looking at a block
         if (!(client.crosshairTarget instanceof BlockHitResult hit)) return;
 
         BlockPos centerPos = hit.getBlockPos();
@@ -62,8 +50,7 @@ public class BrushOutlineMixin {
         int size = stack.getOrDefault(PainterMod.BRUSH_SIZE_COMPONENT, 1);
         PainterMod.BrushShape shape = stack.getOrDefault(PainterMod.BRUSH_SHAPE_COMPONENT, PainterMod.BrushShape.SQUARE);
 
-        VertexConsumer lines = vertexConsumers.getBuffer(RenderLayers.lines());
-
+        // Re-use the same VertexConsumer vanilla already set up for the block outline
         int radius = (size - 1) / 2;
         int min = -radius;
         int max = (size % 2 == 0) ? radius + 1 : radius;
@@ -81,11 +68,11 @@ public class BrushOutlineMixin {
 
                 VertexRendering.drawOutline(
                         matrices,
-                        lines,
+                        vertexConsumer,
                         world.getBlockState(targetPos).getOutlineShape(world, targetPos),
                         x, y, z,
-                        0x66000000, // black, ~40% opacity
-                        2.0f        // line width
+                        0x66000000, // black ~40% opacity
+                        2.0f
                 );
             }
         }

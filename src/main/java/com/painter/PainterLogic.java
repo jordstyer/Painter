@@ -91,9 +91,9 @@ public class PainterLogic {
                     ItemStack stack = new ItemStack(item, count);
                     if (!player.getInventory().insertStack(stack)) player.dropItem(stack, false);
                 });
-                if (player instanceof ServerPlayerEntity sp) {
-                    brush.damage(changedCount, sp, context.getHand() == Hand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND);
-                }
+                // if (player instanceof ServerPlayerEntity sp) {
+                //     brush.damage(changedCount, sp, context.getHand() == Hand.MAIN_HAND ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND);
+                // }
             }
             return true;
         }
@@ -136,51 +136,22 @@ public class PainterLogic {
         }
         world.setBlockState(pos, newState, 2);
 
-        // Return the item evaluated by our Silk Touch/Anti-Cheat logic
-        return getReturnedItem(oldState, brush);
+        // Return the item evaluated by our anti-cheat logic
+        return getReturnedItem(oldState);
     }
 
-    private static Item getReturnedItem(BlockState state, ItemStack brush) {
+    private static Item getReturnedItem(BlockState state) {
         Block block = state.getBlock();
         String blockId = Registries.BLOCK.getId(block).getPath();
         TagKey<Block> cOres = TagKey.of(RegistryKeys.BLOCK, Identifier.of("c", "ores"));
 
-        // Check 1.21 component data safely for the Silk Touch enchantment ID
-        boolean hasSilkTouch = false;
-        for (var entry : brush.getEnchantments().getEnchantmentEntries()) {
-            if (entry.getKey().getKey().isPresent()) {
-                String enchId = entry.getKey().getKey().get().getValue().getPath();
-                if (enchId.equals("silk_touch")) {
-                    hasSilkTouch = true;
-                    break;
-                }
-            }
+        // Anti-Cheat: Prevent ore duplication.
+        // ORES: Destroy completely. Drops nothing (Items.AIR).
+        if (state.isIn(cOres) || blockId.endsWith("_ore") || blockId.equals("ancient_debris")) {
+            return Items.AIR;
         }
 
-        // Anti-Cheat: Downgrade or destroy restricted natural blocks if Silk Touch is missing
-        if (!hasSilkTouch) {
-
-            // 1. ORES: Destroy completely. Drops nothing (Items.AIR). Prevents free diamonds!
-            if (state.isIn(cOres) || blockId.endsWith("_ore") || blockId.equals("ancient_debris")) {
-                return Items.AIR;
-            }
-            // 2. STONE: Downgrades to Cobblestone
-            if (block == Blocks.STONE) {
-                return Items.COBBLESTONE;
-            }
-            if (block == Blocks.DEEPSLATE) {
-                return Items.COBBLED_DEEPSLATE;
-            }
-            // 3. GRASS & DIRT: Downgrades to plain Dirt
-            if (block == Blocks.GRASS_BLOCK || block == Blocks.MYCELIUM || block == Blocks.PODZOL || block == Blocks.DIRT_PATH) {
-                return Items.DIRT;
-            }
-            if (block == Blocks.CRIMSON_NYLIUM || block == Blocks.WARPED_NYLIUM) {
-                return Items.NETHERRACK;
-            }
-        }
-
-        // Safe blocks (Glass, Planks, Bricks) or Silk-Touched blocks return exact item
+        // For all other blocks, return the exact item that was replaced.
         return block.asItem();
     }
 
